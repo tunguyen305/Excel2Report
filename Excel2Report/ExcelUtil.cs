@@ -15,15 +15,22 @@ namespace Report2Pdf
     public class ExcelUtil
     {
         FileInfo finfo;
-        
+        int MAX_LINE_COUNT = 47;
+        string TEMP_RANGE = "K8:Q12";
+        string TABLE_RANGE = "A14:G18";
 
         string fileName = @"F:\Work\Report2Pdf\Report2Pdf\shop.xls";
         
         string fileTemplateName = @"C:\Git\Projects\Excel2Report\Excel2Report\rptTpl.xlt";
 
-        public ExcelUtil(string fileName)
+        string exportFileName = "out.xls";
+        string outputPath = "";
+
+
+        public ExcelUtil(string fileName, string outputPath = "")
         {
             this.fileName = fileName;
+            this.outputPath = outputPath;
         }
 
         public void Open()
@@ -175,7 +182,7 @@ namespace Report2Pdf
         {
             Microsoft.Office.Interop.Excel.Application ExcelObj = new Microsoft.Office.Interop.Excel.Application();
             ExcelObj.Visible = false;
-            int MAX_LINE_COUNT = 48;
+
             Workbook theWorkbook;
             Worksheet worksheet;
             finfo = new FileInfo(fileTemplateName);
@@ -195,13 +202,21 @@ namespace Report2Pdf
                     }
                     else
                     {
-                        for (int i=0; i< 3 /* lst.Count*/; i++)
+                        var src = worksheet.Range[TABLE_RANGE];
+                        var destinationRow = worksheet.Range[TEMP_RANGE];
+                        src.Copy(destinationRow);
+             
+                        for (int i=0; i<  lst.Count; i++)
                         {
                             WriteAnOrder(worksheet, lst[i], i* MAX_LINE_COUNT );
                         }
+                        src = worksheet.Range["R8:X12"];
+                        destinationRow = worksheet.Range[TEMP_RANGE];
+                        src.Copy(destinationRow);
                     }
                 }
-                theWorkbook.SaveAs(@"C:\Git\Projects\Excel2Report\out.xls", XlFileFormat.xlWorkbookNormal);
+                string fileExport = Path.Combine(outputPath == "" ? @"C:\Git\Projects\Excel2Report" : outputPath, exportFileName);
+                theWorkbook.SaveAs(fileExport, XlFileFormat.xlWorkbookNormal);
                 theWorkbook.Close();
 
                 ExcelObj.Quit();
@@ -215,6 +230,7 @@ namespace Report2Pdf
             }
 
         }
+
 
         /// <summary>
         /// write an order to excel file
@@ -238,7 +254,10 @@ namespace Report2Pdf
             //NAME            
             sheet.Range["D" + line, "D" + (5 + startRowIndex).ToString()].Merge();
             sheet.Range["D" + line].Font.Size = 14;
+            sheet.Range["D" + line].VerticalAlignment = XlVAlign.xlVAlignTop;
             sheet.Range["D" + line].Value = ord.UserName.ToUpper();
+            sheet.Range["A" + line].RowHeight = 20;
+            sheet.Range["A" + (5 + startRowIndex).ToString()].RowHeight = 20;
 
             //ID
             sheet.Range["F" + line, "G" + line].Merge();
@@ -273,12 +292,12 @@ namespace Report2Pdf
             int prdCount = ord.Products.Count;
             if (startRowIndex > 0)
             {
-                var selectedRow = sheet.Range["A14:G18"];
+               
+                var src = sheet.Range[TEMP_RANGE];
                 var destinationRow = sheet.Range[string.Format("A{0}:G{1}", 14 + startRowIndex, 18 + startRowIndex)];
 
-                selectedRow.Copy(destinationRow);
+                src.Copy(destinationRow);
             }
-            //sheet.Copy(sheet.Range["A14:G18"], sheet.Range[string.Format("A{0}:G{1}", 14 + startRowIndex, 18 + startRowIndex)]);
 
             while (prdCount-- > 1)
             {
@@ -287,7 +306,7 @@ namespace Report2Pdf
 
             for (int r=0; r< ord.Products.Count; r++)
             {
-                WriteAProduct(sheet, ord.Products[r], r + startRowIndex);
+                WriteAProduct(sheet, ord.Products[r], r + startRowIndex, r);
             }
 
             line = (startRowIndex + ord.Products.Count + 15).ToString();
@@ -319,10 +338,10 @@ namespace Report2Pdf
 
         }
 
-        internal void WriteAProduct(Worksheet sheet, Product prod, int startIdx)
+        internal void WriteAProduct(Worksheet sheet, Product prod, int startLine, int index)
         {
-            string line = (startIdx + 15).ToString();
-            sheet.Range["A" + line].Value = startIdx + 1;
+            string line = (startLine + 15).ToString();
+            sheet.Range["A" + line].Value = index + 1;
             sheet.Range["B" + line].Value = prod.SKU;
             string sp = prod.Name;
             if (prod.Polyphym != "")
